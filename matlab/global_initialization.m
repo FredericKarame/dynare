@@ -57,8 +57,8 @@ options_.solve_tolf = eps^(1/3);
 options_.solve_tolx = eps^(2/3);
 
 options_.dp.maxit = 3000;
-options_.steady.maxit = 50;
-options_.simul.maxit = 50;
+options_.steady.maxit = 10;
+options_.simul.maxit = 10;
 
 options_.mode_check.status = 0;
 options_.mode_check.neighbourhood_size = .5;
@@ -144,7 +144,6 @@ options_.relative_irf = 0;
 options_.ar = 5;
 options_.hp_filter = 0;
 options_.hp_ngrid = 512;
-options_.nodecomposition = 0;
 options_.nomoments = 0;
 options_.nocorr = 0;
 options_.periods = 0;
@@ -251,15 +250,15 @@ particle.proposal_approximation.cubature = 1;
 particle.proposal_approximation.unscented = 0;
 particle.proposal_approximation.montecarlo = 0;
 % Approximation of the particle distribution
-particle.distribution_approximation.cubature = 0;
-particle.distribution_approximation.unscented = 1;
+particle.distribution_approximation.cubature = 1;
+particle.distribution_approximation.unscented = 0;
 particle.distribution_approximation.montecarlo = 0;
 % Number of partitions for the smoothed resampling method
 particle.resampling.number_of_partitions = 200;
 % Configuration of the mixture filters
 %particle.mixture_method = 'particles' ;
 % Size of the different mixtures
-particle.mixture_state_variables = 5 ;
+particle.mixture_state_variables = 10 ;
 particle.mixture_structural_shocks = 1 ;
 particle.mixture_measurement_shocks = 1 ;
 % Online approach 
@@ -395,7 +394,7 @@ options_.loglinear = 0;
 options_.logged_steady_state = 0;
 options_.mh_conf_sig = 0.90;
 options_.prior_interval = 0.90;
-options_.mh_drop = 0.5;
+options_.mh_drop = 0.4;
 options_.mh_jscale = 0.2;
 options_.mh_init_scale = 2*options_.mh_jscale;
 options_.mh_mode = 1;
@@ -406,6 +405,9 @@ options_.recursive_estimation_restart = 0;
 options_.MCMC_jumping_covariance='hessian';
 options_.use_calibration_initialization = 0;
 options_.endo_vars_for_moment_computations_in_estimation=[];
+options_.rwgmh_scale_shock = 1e-5 ;
+options_.rwgmh_init_scale = 1e-3;
+options_.rwgmh_scale_chain = 0.6 ;
 
 % Prior restrictions
 options_.prior_restrictions.status = 0;
@@ -479,8 +481,6 @@ simplex.tolerance.f = 1e-4;
 simplex.maxiter = 5000;
 simplex.maxfcallfactor = 500;
 simplex.maxfcall = [];
-simplex.verbosity = 2;
-simplex.delta_factor=0.05;
 options_.simplex = simplex;
 
 % CMAES optimization routine.
@@ -629,6 +629,7 @@ options_.endogenous_prior_restrictions.moment={};
 % OSR Optimal Simple Rules
 options_.osr.tolf=1e-7;
 options_.osr.maxit=1000;
+options_.osr.verbose=2;
 
 % use GPU
 options_.gpu = 0;
