@@ -1,4 +1,4 @@
-function draw = RWGMH_proposal(Mean,b,options_)
+function draw = RWGMH_proposal(Mean,b,options_,mh_bounds)
 % Pseudo random draws from a multivariate normal distribution,
 % \mathcal N_n(Mean,Sigma), with expectation Mean and variance Sigma.
 %
@@ -30,18 +30,15 @@ function draw = RWGMH_proposal(Mean,b,options_)
 
 number_of_parameters = size(Mean,2) ;
 number_of_chains = size(Mean,1) ;
-indx1 = 1 ;
-indx2 = 1 ;
-while indx1 == indx2 || indx1==b || indx2==b
-  indx1 = randsample(1:number_of_chains,1) ;
-  indx2 = randsample(1:number_of_chains,1) ;  
+draw = -1000*ones(1,number_of_parameters);
+while ~(all( draw(:) > mh_bounds.lb ) && all( draw(:) < mh_bounds.ub ))
+    indx1 = 1 ;
+    indx2 = 1 ;
+    while indx1==indx2 || indx1==b || indx2==b
+      indx1 = randsample(1:number_of_chains,1) ;
+      indx2 = randsample(1:number_of_chains,1) ;  
+    end
+    draw = Mean(b,:) ...
+        + bsxfun(@times,options_.rwgmh.scale_chain,(2.38/(sqrt(2*(number_of_parameters))))*(Mean(indx1,:)-Mean(indx2,:)))  ...
+        + bsxfun(@times,options_.rwgmh.scale_shock,(randn(1,number_of_parameters))) ;
 end
-
-if isempty(options_.rwgmh_scale_chain)
-    rwgmh_scale_chain = 2.38/(sqrt(2*(number_of_parameters-3))) ;
-else 
-    rwgmh_scale_chain = options_.rwgmh_scale_chain ;
-end 
-
-draw = Mean(b,:) + rwgmh_scale_chain*(Mean(indx1,:)-Mean(indx2,:)) ... 
-            + options_.rwgmh_scale_shock*(2*rand(1,number_of_parameters)-1);

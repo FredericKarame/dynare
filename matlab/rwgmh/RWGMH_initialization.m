@@ -70,9 +70,9 @@ if ~options_.load_mh_file && ~options_.mh_recover
     % Here we start a new metropolis-hastings, previous draws are discarded.
     disp('Estimation::RWGMH: Multiple chains mode.')
     % Delete old mh files if any...
-    files = dir([BaseName '_rwgmh*_blck*.mat']);
+    files = dir([BaseName '_mh*_blck*.mat']);
     if length(files)
-        delete([BaseName '_rwgmh*_blck*.mat']);
+        delete([BaseName '_mh*_blck*.mat']);
         disp('Estimation::mcmc: Old rwgmh-files successfully erased!')
     end
     % Delete old metropolis log file.
@@ -101,10 +101,10 @@ if ~options_.load_mh_file && ~options_.mh_recover
         init_iter   = 0;
         trial = 1;
         while validate == 0 && trial <= 10
-            candidate = rand_multivariate_normal( transpose(xparam1), options_.rwgmh_init_scale, npar);
-            if all(candidate(:) > mh_bounds(:,1)) && all(candidate(:) < mh_bounds(:,2)) 
+            candidate = rand_multivariate_normal( transpose(xparam1), options_.rwgmh.init_scale, npar);
+            if all(candidate(:) > mh_bounds.lb) && all(candidate(:) < mh_bounds.ub) 
                 ix2(j,:) = candidate;
-                ilogpo2(j) = - feval(TargetFun,ix2(j,:)',dataset_,dataset_info,options_,M_,estim_params_,bayestopt_,oo_);
+                ilogpo2(j) = - feval(TargetFun,ix2(j,:)',dataset_,dataset_info,options_,M_,estim_params_,bayestopt_,mh_bounds,oo_);
                 if ~isfinite(ilogpo2(j)) % if returned log-density is
                                          % Inf or Nan (penalized value)
                     validate = 0;
@@ -123,11 +123,11 @@ if ~options_.load_mh_file && ~options_.mh_recover
                 disp(['Estimation::RWGMH: I couldn''t get a valid initial value in 100 trials.'])
                 if options_.nointeractive
                     disp(['Estimation::RWGMH: I reduce rwgmh_init_scale by ten percent:'])
-                    options_.mh_init_scale = .9*options_.rwgmh_init_scale;
-                    disp(sprintf('Estimation::RWGMH: Parameter rwgmh_init_scale is now equal to %f.',options_.mh_init_scale))
+                    options_.mh_init_scale = .9*options_.rwgmh.init_scale;
+                    disp(sprintf('Estimation::RWGMH: Parameter rwgmh_init_scale is now equal to %f.',options_.rwgmh.init_scale))
                 else
                     disp(['Estimation::RWGMH: You should Reduce rwgmh_init_scale...'])
-                    disp(sprintf('Estimation::RWGMH: Parameter rwgmh_init_scale is equal to %f.',options_.rwgmh_init_scale))
+                    disp(sprintf('Estimation::RWGMH: Parameter rwgmh_init_scale is equal to %f.',options_.rwgmh.init_scale))
                     options_.rwgmh_init_scale = input('Estimation::mcmc: Enter a new value...  ');
                 end
                 trial = trial+1;
@@ -137,7 +137,7 @@ if ~options_.load_mh_file && ~options_.mh_recover
             disp(['Estimation::RWGMH: I''m unable to find a starting value for block ' int2str(j)])
             return
         end
-    end
+        endm
     fprintf(fidlog,' \n');
     disp('Estimation::RWGMH: Initial values found!')
     skipline()
@@ -193,7 +193,7 @@ elseif options_.load_mh_file && ~options_.mh_recover
     % Here we consider previous mh files (previous mh did not crash).
     disp('Estimation::RWGMH: I am loading past RWGMH simulations...')
     load_last_mh_history_file(MetropolisFolder, ModelName);
-    mh_files = dir([ MetropolisFolder filesep ModelName '_rwgmh*.mat']);
+    mh_files = dir([ MetropolisFolder filesep ModelName '_mh*.mat']);
     if ~length(mh_files)
         error('Estimation::RWGMH: I cannot find any MH file to load here!')
     end
@@ -285,7 +285,7 @@ elseif options_.mh_recover
     ExpectedNumberOfMhFilesPerBlock = sum(record.MhDraws(:,2),1);
     ExpectedNumberOfMhFiles = ExpectedNumberOfMhFilesPerBlock*nblck;
     % I count the total number of saved mh files...
-    AllMhFiles = dir([BaseName '_rwgmh*_blck*.mat']);
+    AllMhFiles = dir([BaseName '_mh*_blck*.mat']);
     TotalNumberOfMhFiles = length(AllMhFiles);
     % And I quit if I can't find a crashed mcmc chain. 
     if (TotalNumberOfMhFiles==ExpectedNumberOfMhFiles)
@@ -297,7 +297,7 @@ elseif options_.mh_recover
     % I count the number of saved mh files per block.
     NumberOfMhFilesPerBlock = zeros(nblck,1);
     for b = 1:nblck
-        BlckMhFiles = dir([BaseName '_rwgmh*_blck' int2str(b) '.mat']);
+        BlckMhFiles = dir([BaseName '_mh*_blck' int2str(b) '.mat']);
         NumberOfMhFilesPerBlock(b) = length(BlckMhFiles);
     end
     % Is there a chain with less mh files than expected ? 
@@ -322,7 +322,7 @@ elseif options_.mh_recover
     NumberOfSavedMhFiles = NumberOfSavedMhFilesInTheCrashedBlck+LastFileNumberInThePreviousMh;
     % Correct initial conditions.
     if NumberOfSavedMhFiles
-        load([BaseName '_rwgmh' int2str(NumberOfSavedMhFiles) '_blck' int2str(fblck) '.mat']);
+        load([BaseName '_mh' int2str(NumberOfSavedMhFiles) '_blck' int2str(fblck) '.mat']);
         ilogpo2(fblck) = logpo2(end);
         ix2(fblck,:) = x2(end,:);
     end
