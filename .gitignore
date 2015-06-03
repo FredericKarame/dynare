@@ -33,6 +33,9 @@ install-sh
 ylwrap
 ar-lib
 
+# checksum associated with fast option
+checksum
+
 # Make Check Rules
 *.trs
 
@@ -113,8 +116,7 @@ mex/build/matlab/run_m2html.m
 /preprocessor/doc/
 
 # MATLAB dir
-/matlab/dynare_m
-/matlab/dynare_m.exe
+/matlab/preprocessor*
 /matlab/dynare_version.m
 
 # DLL rules

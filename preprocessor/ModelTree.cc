@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 Dynare Team
+ * Copyright (C) 2003-2015 Dynare Team
  *
  * This file is part of Dynare.
  *
@@ -1352,6 +1352,7 @@ ModelTree::writeLatexModelFile(const string &filename, ExprNodeOutputType output
   output << "\\documentclass[10pt,a4paper]{article}" << endl
          << "\\usepackage[landscape]{geometry}" << endl
          << "\\usepackage{fullpage}" << endl
+         << "\\usepackage{amsfonts}" << endl
          << "\\usepackage{breqn}" << endl
          << "\\begin{document}" << endl
          << "\\footnotesize" << endl;
@@ -1410,6 +1411,64 @@ ModelTree::addAuxEquation(expr_t eq)
   assert(beq != NULL && beq->get_op_code() == oEqual);
 
   aux_equations.push_back(beq);
+}
+
+void
+ModelTree::reindex(SymbolTable &orig_symbol_table)
+{
+  DataTree::reindex(orig_symbol_table);
+  reindexEquations(orig_symbol_table);
+  reindexTrendSymbolsMap(orig_symbol_table);
+  reindexNonstationarySymbolsMap(orig_symbol_table);
+}
+
+void
+ModelTree::reindexEquations(SymbolTable &orig_symbol_table)
+{
+  vector<BinaryOpNode *>eqbak = equations;
+  equations.clear();
+  for (size_t i = 0; i < eqbak.size(); i++)
+    addEquation(eqbak[i]->cloneDynamicReindex(*this, orig_symbol_table), equations_lineno[i]);
+}
+
+void
+ModelTree::reindexTrendSymbolsMap(SymbolTable &orig_symbol_table)
+{
+  map<int, expr_t> orig_trend_symbols_map = trend_symbols_map;
+  trend_symbols_map.clear();
+  for (map<int, expr_t>::const_iterator it = orig_trend_symbols_map.begin();
+       it != orig_trend_symbols_map.end(); it++)
+    try
+      {
+        vector<int> symb_id (1, symbol_table.getID(orig_symbol_table.getName(it->first)));
+        addTrendVariables(symb_id, it->second->cloneDynamicReindex(*this, orig_symbol_table));
+      }
+    catch(...)
+      {
+        cerr << "Error: unused exo in trend symbols." << endl;
+        exit(EXIT_FAILURE);
+      }
+}
+
+void
+ModelTree::reindexNonstationarySymbolsMap(SymbolTable &orig_symbol_table)
+{
+  nonstationary_symbols_map_t orig_nonstationary_symbols_map = nonstationary_symbols_map;
+  nonstationary_symbols_map.clear();
+  for (nonstationary_symbols_map_t::const_iterator it = orig_nonstationary_symbols_map.begin();
+       it != orig_nonstationary_symbols_map.end(); it++)
+    try
+      {
+        vector<int> symb_id (1, symbol_table.getID(orig_symbol_table.getName(it->first)));
+        addNonstationaryVariables(symb_id,
+                                  it->second.first,
+                                  it->second.second->cloneDynamicReindex(*this, orig_symbol_table));
+      }
+  catch(...)
+      {
+        cerr << "Error: unused exo in nonstationary symbols." << endl;
+        exit(EXIT_FAILURE);
+      }
 }
 
 void

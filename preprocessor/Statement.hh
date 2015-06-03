@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2014 Dynare Team
+ * Copyright (C) 2006-2015 Dynare Team
  *
  * This file is part of Dynare.
  *
@@ -27,6 +27,8 @@
 
 #include "SymbolList.hh"
 #include "WarningConsolidation.hh"
+#include "SymbolTable.hh"
+#include "DataTree.hh"
 
 class ModFileStructure
 {
@@ -134,8 +136,13 @@ public:
     \param output is the output stream of the main matlab file
     \param basename is the name of the modfile (without extension) which can be used to build auxiliary files
   */
-  virtual void writeOutput(ostream &output, const string &basename) const = 0;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const = 0;
   virtual void writeCOutput(ostream &output, const string &basename);
+  //! clone a statement while updating all symbol ids that are contained within it.
+  /* Symbol id's are updated from the symbol table contained in dynamic_datatree
+     The original symbol table is contained in orig_symbol_table
+   */
+  virtual Statement *cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table);
 };
 
 class NativeStatement : public Statement
@@ -144,7 +151,7 @@ private:
   const string native_statement;
 public:
   NativeStatement(const string &native_statement_arg);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
 };
 
 class OptionsList

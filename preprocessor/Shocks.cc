@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 Dynare Team
+ * Copyright (C) 2003-2015 Dynare Team
  *
  * This file is part of Dynare.
  *
@@ -67,6 +67,31 @@ AbstractShocksStatement::writeDetShocks(ostream &output) const
   output << "M_.exo_det_length = " << exo_det_length << ";\n";
 }
 
+AbstractShocksStatement::det_shocks_t
+AbstractShocksStatement::reindexDetShocksSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table)
+{
+  det_shocks_t new_det_shocks;
+  SymbolTable *new_symbol_table = dynamic_datatree.getSymbolTable();
+  for (det_shocks_t::const_iterator it=det_shocks.begin(); it!=det_shocks.end(); it++)
+    try
+      {
+        vector<DetShockElement> det_shock_vec;
+        for (int i=0; i<it->second.size(); i++)
+          {
+            DetShockElement dse;
+            dse.period1 = it->second[i].period1;
+            dse.period2 = it->second[i].period2;
+            dse.value = it->second[i].value->cloneDynamicReindex(dynamic_datatree, orig_symbol_table);
+            det_shock_vec.push_back(dse);
+          }
+        new_det_shocks[new_symbol_table->getID(orig_symbol_table.getName(it->first))] = det_shock_vec;
+      }
+    catch (...)
+      {
+      }
+  return new_det_shocks;
+}
+
 ShocksStatement::ShocksStatement(bool overwrite_arg,
                                  const det_shocks_t &det_shocks_arg,
                                  const var_and_std_shocks_t &var_shocks_arg,
@@ -83,7 +108,7 @@ ShocksStatement::ShocksStatement(bool overwrite_arg,
 }
 
 void
-ShocksStatement::writeOutput(ostream &output, const string &basename) const
+ShocksStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "%" << endl
          << "% SHOCKS instructions" << endl
@@ -332,6 +357,69 @@ ShocksStatement::has_calibrated_measurement_errors() const
   return false;
 }
 
+Statement *
+ShocksStatement::cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table)
+{
+  var_and_std_shocks_t new_var_shocks, new_std_shocks;
+  covar_and_corr_shocks_t new_covar_shocks, new_corr_shocks;
+  SymbolTable *new_symbol_table = dynamic_datatree.getSymbolTable();
+
+  for (var_and_std_shocks_t::const_iterator it = var_shocks.begin();
+       it != var_shocks.end(); it++)
+    try
+      {
+        new_var_shocks[new_symbol_table->getID(orig_symbol_table.getName(it->first))] =
+          it->second->cloneDynamicReindex(dynamic_datatree, orig_symbol_table);
+      }
+    catch (...)
+      {
+      }
+
+  for (var_and_std_shocks_t::const_iterator it = std_shocks.begin();
+       it != std_shocks.end(); it++)
+    try
+      {
+        new_std_shocks[new_symbol_table->getID(orig_symbol_table.getName(it->first))] =
+          it->second->cloneDynamicReindex(dynamic_datatree, orig_symbol_table);
+      }
+    catch (...)
+      {
+      }
+
+  for (covar_and_corr_shocks_t::const_iterator it = covar_shocks.begin();
+       it != covar_shocks.end(); it++)
+    try
+      {
+        new_covar_shocks[make_pair(new_symbol_table->getID(orig_symbol_table.getName(it->first.first)),
+                                   new_symbol_table->getID(orig_symbol_table.getName(it->first.second)))] =
+          it->second->cloneDynamicReindex(dynamic_datatree, orig_symbol_table);
+      }
+    catch (...)
+      {
+      }
+
+  for (covar_and_corr_shocks_t::const_iterator it = corr_shocks.begin();
+       it != corr_shocks.end(); it++)
+    try
+      {
+        new_corr_shocks[make_pair(new_symbol_table->getID(orig_symbol_table.getName(it->first.first)),
+                                  new_symbol_table->getID(orig_symbol_table.getName(it->first.second)))] =
+          it->second->cloneDynamicReindex(dynamic_datatree, orig_symbol_table);
+      }
+    catch (...)
+      {
+      }
+
+  return new ShocksStatement(overwrite,
+                             reindexDetShocksSymbIds(dynamic_datatree, orig_symbol_table),
+                             new_var_shocks,
+                             new_std_shocks,
+                             new_covar_shocks,
+                             new_corr_shocks,
+                             *(dynamic_datatree.getSymbolTable()));
+}
+
+
 MShocksStatement::MShocksStatement(bool overwrite_arg,
                                    const det_shocks_t &det_shocks_arg,
                                    const SymbolTable &symbol_table_arg) :
@@ -340,7 +428,7 @@ MShocksStatement::MShocksStatement(bool overwrite_arg,
 }
 
 void
-MShocksStatement::writeOutput(ostream &output, const string &basename) const
+MShocksStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "%" << endl
          << "% MSHOCKS instructions" << endl
@@ -350,6 +438,14 @@ MShocksStatement::writeOutput(ostream &output, const string &basename) const
     output << "M_.det_shocks = [];" << endl;
 
   writeDetShocks(output);
+}
+
+Statement *
+MShocksStatement::cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table)
+{
+  return new MShocksStatement(overwrite,
+                              reindexDetShocksSymbIds(dynamic_datatree, orig_symbol_table),
+                              *(dynamic_datatree.getSymbolTable()));
 }
 
 ConditionalForecastPathsStatement::ConditionalForecastPathsStatement(const AbstractShocksStatement::det_shocks_t &paths_arg) :
@@ -380,7 +476,7 @@ ConditionalForecastPathsStatement::checkPass(ModFileStructure &mod_file_struct, 
 }
 
 void
-ConditionalForecastPathsStatement::writeOutput(ostream &output, const string &basename) const
+ConditionalForecastPathsStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   assert(path_length > 0);
   output << "constrained_vars_ = [];" << endl
@@ -420,7 +516,7 @@ MomentCalibration::MomentCalibration(const constraints_t &constraints_arg,
 }
 
 void
-MomentCalibration::writeOutput(ostream &output, const string &basename) const
+MomentCalibration::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "options_.endogenous_prior_restrictions.moment = {" << endl;
   for (size_t i = 0; i < constraints.size(); i++)
@@ -442,7 +538,7 @@ IrfCalibration::IrfCalibration(const constraints_t &constraints_arg,
 }
 
 void
-IrfCalibration::writeOutput(ostream &output, const string &basename) const
+IrfCalibration::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "options_.endogenous_prior_restrictions.irf = {" << endl;
   for (size_t i = 0; i < constraints.size(); i++)

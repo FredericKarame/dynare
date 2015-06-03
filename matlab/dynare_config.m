@@ -15,7 +15,7 @@ function dynareroot = dynare_config(path_to_dynare,verbose)
 % SPECIAL REQUIREMENTS
 %   none
 
-% Copyright (C) 2001-2014 Dynare Team
+% Copyright (C) 2001-2015 Dynare Team
 %
 % This file is part of Dynare.
 %
@@ -35,6 +35,7 @@ function dynareroot = dynare_config(path_to_dynare,verbose)
 if nargin && ~isempty(path_to_dynare)
     addpath(path_to_dynare);
 end
+
 dynareroot = strrep(which('dynare'),'dynare.m','');
 
 origin = pwd();
@@ -44,27 +45,30 @@ if ~nargin || nargin==1
     verbose = 1;
 end
 
-
 addpath([dynareroot '/distributions/'])
 addpath([dynareroot '/kalman/'])
 addpath([dynareroot '/kalman/likelihood'])
 addpath([dynareroot '/AIM/'])
 addpath([dynareroot '/partial_information/'])
+addpath([dynareroot '/perfect-foresight-models/'])
 addpath([dynareroot '/ms-sbvar/'])
 addpath([dynareroot '/ms-sbvar/identification/'])
 addpath([dynareroot '../contrib/ms-sbvar/TZcode/MatlabFiles/'])
 addpath([dynareroot '/parallel/'])
-addpath([dynareroot '/particle/'])
+addpath([dynareroot '/particles/src'])
 addpath([dynareroot '/gsa/'])
 addpath([dynareroot '/ep/'])
+addpath([dynareroot '/cli/'])
 addpath([dynareroot '/lmmcp/'])
+addpath([dynareroot '/optimization/'])
+addpath([dynareroot '/modules/dates/src/'])
+addpath([dynareroot '/modules/dseries/src/'])
+addpath([dynareroot '/modules/dseries/src/read'])
 addpath([dynareroot '/utilities/doc/'])
 addpath([dynareroot '/utilities/tests/src/'])
-addpath([dynareroot '/utilities/dates/'])
 addpath([dynareroot '/utilities/dataset/'])
 addpath([dynareroot '/utilities/general/'])
-addpath([dynareroot '/utilities/dseries/'])
-addpath([dynareroot '/reports/'])
+addpath([dynareroot '/modules/reporting/src/'])
 
 % For functions that exist only under some Octave versions
 % or some MATLAB versions, and for which we provide some replacement functions
@@ -86,8 +90,8 @@ if isoctave
     addpath([dynareroot '/missing/ordeig'])
 end
 
-% ilu is missing in Octave
-if isoctave
+% ilu is missing in Octave < 4.0
+if isoctave && octave_ver_less_than('4.0')
     addpath([dynareroot '/missing/ilu'])
 end
 
@@ -110,49 +114,7 @@ if (isoctave && ~user_has_octave_forge_package('statistics')) ...
 end
 
 % Add path to MEX files
-if isoctave
-    addpath([dynareroot '../mex/octave/']);
-else
-    % Add win32 specific paths for Dynare Windows package
-    if strcmp(computer, 'PCWIN')
-        mexpath = [dynareroot '../mex/matlab/win32-7.5-8.4'];
-        if exist(mexpath, 'dir')
-            addpath(mexpath)
-        end
-    end
-
-    % Add win64 specific paths for Dynare Windows package
-    if strcmp(computer, 'PCWIN64')
-        if matlab_ver_less_than('7.8')
-            mexpath = [dynareroot '../mex/matlab/win64-7.5-7.7'];
-            if exist(mexpath, 'dir')
-                addpath(mexpath)
-            end
-        else
-            mexpath = [dynareroot '../mex/matlab/win64-7.8-8.4'];
-            if exist(mexpath, 'dir')
-                addpath(mexpath)
-            end
-        end
-    end
-
-    if strcmp(computer, 'MACI')
-        mexpath = [dynareroot '../mex/matlab/osx32-7.5-7.11'];
-        if exist(mexpath, 'dir')
-            addpath(mexpath)
-        end
-    end
-
-    if strcmp(computer, 'MACI64')
-        mexpath = [dynareroot '../mex/matlab/osx64'];
-        if exist(mexpath, 'dir')
-            addpath(mexpath)
-        end
-    end
-
-    % Add generic MATLAB path (with higher priority than the previous ones)
-    addpath([dynareroot '../mex/matlab/']);
-end
+add_path_to_mex_files(dynareroot);
 
 %% Set mex routine names
 mex_status = cell(1,3);
@@ -169,7 +131,7 @@ mex_status(4,1) = {'sparse_hessian_times_B_kronecker_C'};
 mex_status(4,2) = {'kronecker'};
 mex_status(4,3) = {'Sparse kronecker products'};
 mex_status(5,1) = {'local_state_space_iteration_2'};
-mex_status(5,2) = {'particle/local_state_space_iteration'};
+mex_status(5,2) = {'reduced_form_models/local_state_space_iteration_2'};
 mex_status(5,3) = {'Local state space iteration (second order)'};
 number_of_mex_files = size(mex_status,1);
 %% Remove some directories from matlab's path. This is necessary if the user has
@@ -256,7 +218,7 @@ if verbose
 end
 
 % Save empty dates and dseries objects (necessary if a mod file is not preprocessed).
-dates('initialize');
+initialize_dates_toolbox;
 dseries('initialize');
 
 cd(origin);

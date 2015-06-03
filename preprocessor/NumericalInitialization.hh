@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 Dynare Team
+ * Copyright (C) 2003-2015 Dynare Team
  *
  * This file is part of Dynare.
  *
@@ -40,10 +40,11 @@ public:
   InitParamStatement(int symb_id_arg, const expr_t param_value_arg,
                      const SymbolTable &symbol_table_arg);
   virtual void checkPass(ModFileStructure &mod_file_struct, WarningConsolidation &warnings);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
   virtual void writeCOutput(ostream &output, const string &basename);
   //! Fill eval context with parameter value
   void fillEvalContext(eval_context_t &eval_context) const;
+  virtual Statement *cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table);
 };
 
 class InitOrEndValStatement : public Statement
@@ -77,9 +78,10 @@ public:
                    const SymbolTable &symbol_table_arg,
                    const bool &all_values_required_arg);
   virtual void checkPass(ModFileStructure &mod_file_struct, WarningConsolidation &warnings);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
   //! Writes initializations for oo_.exo_simul and oo_.exo_det_simul
   void writeOutputPostInit(ostream &output) const;
+  virtual Statement *cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table);
 };
 
 class EndValStatement : public InitOrEndValStatement
@@ -90,7 +92,8 @@ public:
                   const bool &all_values_required_arg);
   //! Workaround for trac ticket #35
   virtual void checkPass(ModFileStructure &mod_file_struct, WarningConsolidation &warnings);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
+  virtual Statement *cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table);
 };
 
 class HistValStatement : public Statement
@@ -110,7 +113,8 @@ public:
                    const SymbolTable &symbol_table_arg);
   //! Workaround for trac ticket #157
   virtual void checkPass(ModFileStructure &mod_file_struct, WarningConsolidation &warnings);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
+  virtual Statement *cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table);
 };
 
 class InitvalFileStatement : public Statement
@@ -119,7 +123,7 @@ private:
   const string filename;
 public:
   InitvalFileStatement(const string &filename_arg);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
 };
 
 class HistvalFileStatement : public Statement
@@ -128,7 +132,7 @@ private:
   const string filename;
 public:
   HistvalFileStatement(const string &filename_arg);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
 };
 
 class HomotopyStatement : public Statement
@@ -143,7 +147,7 @@ private:
 public:
   HomotopyStatement(const homotopy_values_t &homotopy_values_arg,
                     const SymbolTable &symbol_table_arg);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
 };
 
 class SaveParamsAndSteadyStateStatement : public Statement
@@ -152,12 +156,13 @@ private:
   const string filename;
 public:
   SaveParamsAndSteadyStateStatement(const string &filename_arg);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
 };
 
 class LoadParamsAndSteadyStateStatement : public Statement
 {
 private:
+  const string filename;
   const SymbolTable &symbol_table;
   //! Content of the file
   /*! Maps symbol ID to numeric value (stored as string) */
@@ -166,7 +171,7 @@ public:
   LoadParamsAndSteadyStateStatement(const string &filename,
                                     const SymbolTable &symbol_table_arg,
                                     WarningConsolidation &warnings);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
   //! Fill eval context with parameters/variables values
   void fillEvalContext(eval_context_t &eval_context) const;
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 Dynare Team
+ * Copyright (C) 2003-2015 Dynare Team
  *
  * This file is part of Dynare.
  *
@@ -24,6 +24,7 @@ using namespace std;
 #define ZERO_BAND 1e-8
 
 #include <fstream>
+#include <boost/crc.hpp>
 
 #include "StaticModel.hh"
 
@@ -243,14 +244,23 @@ public:
   //! Adds an equation marked as [static]
   void addStaticOnlyEquation(expr_t eq, int lineno);
 
+  //! reindex Dynamic Model after removal of extra exogenous
+  void reindex(SymbolTable &orig_symbol_table);
+
+  //! reindex equations marked as [static]
+  void reindexStaticOnlyEquations(SymbolTable &orig_symbol_table);
+
   //! Returns number of static only equations
   size_t staticOnlyEquationsNbr() const;
-  
+
   //! Returns number of dynamic only equations
   size_t dynamicOnlyEquationsNbr() const;
 
   //! Writes LaTeX file with the equations of the dynamic model
   void writeLatexFile(const string &basename) const;
+
+  //! Writes LaTeX file with the equations of the dynamic model (for the original model)
+  void writeLatexOriginalFile(const string &basename) const;
 
   virtual int getDerivID(int symb_id, int lag) const throw (UnknownDerivIDException);
   virtual int getDynJacobianCol(int deriv_id) const throw (UnknownDerivIDException);
@@ -476,6 +486,8 @@ public:
   void writeSecondDerivativesC_csr(const string &basename, bool cuda) const;
   //! Writes C file containing third order derivatives of model evaluated at steady state (compressed sparse column)
   void writeThirdDerivativesC_csr(const string &basename, bool cuda) const;
+
+  bool isChecksumMatching(const string &basename) const;
 };
 
 //! Classes to re-order derivatives for various sparse storage formats 

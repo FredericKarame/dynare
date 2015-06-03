@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 Dynare Team
+ * Copyright (C) 2003-2015 Dynare Team
  *
  * This file is part of Dynare.
  *
@@ -41,13 +41,14 @@ InitParamStatement::checkPass(ModFileStructure &mod_file_struct, WarningConsolid
 }
 
 void
-InitParamStatement::writeOutput(ostream &output, const string &basename) const
+InitParamStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   int id = symbol_table.getTypeSpecificID(symb_id) + 1;
   output << "M_.params( " << id << " ) = ";
   param_value->writeOutput(output);
   output << ";" << endl;
-  output << symbol_table.getName(symb_id) << " = M_.params( " << id << " );\n";
+  if (!minimal_workspace)
+    output << symbol_table.getName(symb_id) << " = M_.params( " << id << " );" << endl;
 }
 
 void
@@ -71,6 +72,32 @@ InitParamStatement::fillEvalContext(eval_context_t &eval_context) const
     {
       // Do nothing
     }
+}
+
+Statement *
+InitParamStatement::cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table)
+{
+  string error;
+  try
+    {
+      return new InitParamStatement(symbol_table.getID(orig_symbol_table.getName(symb_id)),
+                                    param_value->cloneDynamicReindex(dynamic_datatree, orig_symbol_table),
+                                    symbol_table);
+    }
+  catch (SymbolTable::UnknownSymbolIDException &e)
+    {
+      error = orig_symbol_table.getName(e.id);
+    }
+  catch (SymbolTable::UnknownSymbolNameException &e)
+    {
+      error = e.name;
+    }
+
+  cerr << endl
+       << "ERROR: The following vars were used in the init param statement(s) but  were not declared." << endl
+       << "       This likely means that you declared them as varexo and that they're not in the model" << endl
+       << error << endl;
+  exit(EXIT_FAILURE);
 }
 
 InitOrEndValStatement::InitOrEndValStatement(const init_values_t &init_values_arg,
@@ -186,7 +213,7 @@ InitValStatement::checkPass(ModFileStructure &mod_file_struct, WarningConsolidat
 }
 
 void
-InitValStatement::writeOutput(ostream &output, const string &basename) const
+InitValStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "%" << endl
          << "% INITVAL instructions" << endl
@@ -206,6 +233,35 @@ InitValStatement::writeOutputPostInit(ostream &output) const
          << "if M_.exo_det_nbr > 0;" << endl
          << "\too_.exo_det_simul = [ones(M_.maximum_lag,1)*oo_.exo_det_steady_state'];" << endl
          <<"end;" << endl;
+}
+
+Statement *
+InitValStatement::cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table)
+{
+  vector<string> errors;
+  init_values_t new_init_values;
+  for (init_values_t::const_iterator it=init_values.begin();
+       it != init_values.end(); it++)
+    try
+      {
+        new_init_values.push_back(make_pair(symbol_table.getID(orig_symbol_table.getName(it->first)),
+                                            it->second->cloneDynamicReindex(dynamic_datatree, orig_symbol_table)));
+      }
+    catch (SymbolTable::UnknownSymbolNameException &e)
+      {
+        errors.push_back(e.name);
+      }
+
+  if (!errors.empty())
+    {
+      cerr << endl
+           << "ERROR: The following vars were used in the initval statement(s) but  were not declared." << endl
+           << "       This likely means that you declared them as varexo and that they're not in the model" << endl;
+      for (vector<string>::const_iterator it = errors.begin(); it != errors.end(); it++)
+        cerr << *it << endl;
+      exit(EXIT_FAILURE);
+    }
+  return new InitValStatement(new_init_values, symbol_table, all_values_required);
 }
 
 EndValStatement::EndValStatement(const init_values_t &init_values_arg,
@@ -242,7 +298,7 @@ EndValStatement::checkPass(ModFileStructure &mod_file_struct, WarningConsolidati
 }
 
 void
-EndValStatement::writeOutput(ostream &output, const string &basename) const
+EndValStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "%" << endl
          << "% ENDVAL instructions" << endl
@@ -252,6 +308,36 @@ EndValStatement::writeOutput(ostream &output, const string &basename) const
          << "ex0_ = oo_.exo_steady_state;" << endl;
 
   writeInitValues(output);
+}
+
+Statement *
+EndValStatement::cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table)
+{
+  vector<string> errors;
+  init_values_t new_init_values;
+
+  for (init_values_t::const_iterator it=init_values.begin();
+       it != init_values.end(); it++)
+    try
+      {
+        new_init_values.push_back(make_pair(symbol_table.getID(orig_symbol_table.getName(it->first)),
+                                            it->second->cloneDynamicReindex(dynamic_datatree, orig_symbol_table)));
+      }
+    catch (SymbolTable::UnknownSymbolNameException &e)
+      {
+        errors.push_back(e.name);
+      }
+
+  if (!errors.empty())
+    {
+      cerr << endl
+           << "ERROR: The following vars were used in the endval statement(s) but  were not declared." << endl
+           << "       This likely means that you declared them as varexo and that they're not in the model" << endl;
+      for (vector<string>::const_iterator it = errors.begin(); it != errors.end(); it++)
+        cerr << *it << endl;
+      exit(EXIT_FAILURE);
+    }
+  return new EndValStatement(new_init_values, symbol_table, all_values_required);
 }
 
 HistValStatement::HistValStatement(const hist_values_t &hist_values_arg,
@@ -268,7 +354,7 @@ HistValStatement::checkPass(ModFileStructure &mod_file_struct, WarningConsolidat
 }
 
 void
-HistValStatement::writeOutput(ostream &output, const string &basename) const
+HistValStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "%" << endl
          << "% HISTVAL instructions" << endl
@@ -320,13 +406,43 @@ HistValStatement::writeOutput(ostream &output, const string &basename) const
     }
 }
 
+Statement *
+HistValStatement::cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table)
+{
+  vector<string> errors;
+  hist_values_t new_hist_values;
+  for (hist_values_t::const_iterator it=hist_values.begin();
+       it != hist_values.end(); it++)
+    try
+      {
+        new_hist_values[make_pair(symbol_table.getID(orig_symbol_table.getName(it->first.first)),
+                                  it->first.second)] =
+          it->second->cloneDynamicReindex(dynamic_datatree, orig_symbol_table);
+      }
+    catch (SymbolTable::UnknownSymbolNameException &e)
+      {
+        errors.push_back(e.name);
+      }
+
+  if (!errors.empty())
+    {
+      cerr << endl
+           << "ERROR: The following vars were used in the histval statement(s) but  were not declared." << endl
+           << "       This likely means that you declared them as varexo and that they're not in the model" << endl;
+      for (vector<string>::const_iterator it = errors.begin(); it != errors.end(); it++)
+        cerr << *it << endl;
+      exit(EXIT_FAILURE);
+    }
+  return new HistValStatement(new_hist_values, symbol_table);
+}
+
 InitvalFileStatement::InitvalFileStatement(const string &filename_arg) :
   filename(filename_arg)
 {
 }
 
 void
-InitvalFileStatement::writeOutput(ostream &output, const string &basename) const
+InitvalFileStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "%" << endl
          << "% INITVAL_FILE statement" << endl
@@ -341,7 +457,7 @@ HistvalFileStatement::HistvalFileStatement(const string &filename_arg) :
 }
 
 void
-HistvalFileStatement::writeOutput(ostream &output, const string &basename) const
+HistvalFileStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "histvalf('" << filename << "');" << endl;
 }
@@ -354,7 +470,7 @@ HomotopyStatement::HomotopyStatement(const homotopy_values_t &homotopy_values_ar
 }
 
 void
-HomotopyStatement::writeOutput(ostream &output, const string &basename) const
+HomotopyStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "%" << endl
          << "% HOMOTOPY_SETUP instructions" << endl
@@ -388,14 +504,15 @@ SaveParamsAndSteadyStateStatement::SaveParamsAndSteadyStateStatement(const strin
 }
 
 void
-SaveParamsAndSteadyStateStatement::writeOutput(ostream &output, const string &basename) const
+SaveParamsAndSteadyStateStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   output << "save_params_and_steady_state('" << filename << "');" << endl;
 }
 
-LoadParamsAndSteadyStateStatement::LoadParamsAndSteadyStateStatement(const string &filename,
+LoadParamsAndSteadyStateStatement::LoadParamsAndSteadyStateStatement(const string &filename_arg,
                                                                      const SymbolTable &symbol_table_arg,
                                                                      WarningConsolidation &warnings) :
+  filename(filename_arg),
   symbol_table(symbol_table_arg)
 {
   cout << "Reading " << filename << "." << endl;
@@ -429,7 +546,7 @@ LoadParamsAndSteadyStateStatement::LoadParamsAndSteadyStateStatement(const strin
 }
 
 void
-LoadParamsAndSteadyStateStatement::writeOutput(ostream &output, const string &basename) const
+LoadParamsAndSteadyStateStatement::writeOutput(ostream &output, const string &basename, bool minimal_workspace) const
 {
   for (map<int, string>::const_iterator it = content.begin();
        it != content.end(); it++)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 Dynare Team
+ * Copyright (C) 2003-2015 Dynare Team
  *
  * This file is part of Dynare.
  *
@@ -1186,8 +1186,7 @@ ParsingDriver::add_in_symbol_list(string *tmp_var)
 void
 ParsingDriver::rplot()
 {
-  mod_file->addStatement(new RplotStatement(symbol_list, options_list));
-  options_list.clear();
+  mod_file->addStatement(new RplotStatement(symbol_list));
   symbol_list.clear();
 }
 
@@ -1411,6 +1410,26 @@ ParsingDriver::set_prior(string *name, string *subsample_name)
 }
 
 void
+ParsingDriver::set_joint_prior(vector<string *>*symbol_vec)
+{
+  for (vector<string *>::const_iterator it=symbol_vec->begin(); it != symbol_vec->end(); it++)
+    add_joint_parameter(*it);
+  mod_file->addStatement(new JointPriorStatement(joint_parameters, prior_shape, options_list));
+  joint_parameters.clear();
+  options_list.clear();
+  prior_shape = eNoShape;
+  delete symbol_vec;
+}
+
+void
+ParsingDriver::add_joint_parameter(string *name)
+{
+  check_symbol_is_parameter(name);
+  joint_parameters.push_back(*name);
+  delete name;
+}
+
+void
 ParsingDriver::set_prior_variance(expr_t variance)
 {
   prior_variance = variance;
@@ -1607,6 +1626,34 @@ ParsingDriver::optim_options_num(string *name, string *value)
 {
   optim_options_helper(*name);
   options_list.string_options["optim_opt"] += *value;
+  delete name;
+  delete value;
+}
+
+void
+ParsingDriver::tarb_optim_options_helper(const string &name)
+{
+  if (options_list.string_options.find("TaRB.optim_opt") == options_list.string_options.end())
+    options_list.string_options["TaRB.optim_opt"] = "";
+  else
+    options_list.string_options["TaRB.optim_opt"] += ",";
+  options_list.string_options["TaRB.optim_opt"] += "''" + name + "'',";
+}
+
+void
+ParsingDriver::tarb_optim_options_string(string *name, string *value)
+{
+  tarb_optim_options_helper(*name);
+  options_list.string_options["TaRB.optim_opt"] += "''" + *value + "''";
+  delete name;
+  delete value;
+}
+
+void
+ParsingDriver::tarb_optim_options_num(string *name, string *value)
+{
+  tarb_optim_options_helper(*name);
+  options_list.string_options["TaRB.optim_opt"] += *value;
   delete name;
   delete value;
 }
@@ -1818,6 +1865,12 @@ void
 ParsingDriver::write_latex_static_model()
 {
   mod_file->addStatement(new WriteLatexStaticModelStatement(mod_file->static_model));
+}
+
+void
+ParsingDriver::write_latex_original_model()
+{
+  mod_file->addStatement(new WriteLatexOriginalModelStatement(mod_file->original_model));
 }
 
 void
@@ -2719,3 +2772,54 @@ ParsingDriver::perfect_foresight_solver()
   mod_file->addStatement(new PerfectForesightSolverStatement(options_list));
   options_list.clear();
 }
+
+void
+ParsingDriver::add_ramsey_constraints_statement()
+{
+  mod_file->addStatement(new RamseyConstraintsStatement(ramsey_constraints));
+  ramsey_constraints.clear();
+}
+
+void
+ParsingDriver::ramsey_constraint_add_less(const string *name, const expr_t rhs)
+{
+  add_ramsey_constraint(name,oLess,rhs);
+}
+
+void
+ParsingDriver::ramsey_constraint_add_greater(const string *name, const expr_t rhs)
+{
+  add_ramsey_constraint(name,oGreater,rhs);
+}
+
+void
+ParsingDriver::ramsey_constraint_add_less_equal(const string *name, const expr_t rhs)
+{
+  add_ramsey_constraint(name,oLessEqual,rhs);
+}
+
+void
+ParsingDriver::ramsey_constraint_add_greater_equal(const string *name, const expr_t rhs)
+{
+  add_ramsey_constraint(name,oGreaterEqual,rhs);
+}
+
+void
+ParsingDriver::add_ramsey_constraint(const string *name, BinaryOpcode op_code, const expr_t rhs)
+{
+  check_symbol_existence(*name);
+  int symb_id = mod_file->symbol_table.getID(*name);
+  SymbolType type = mod_file->symbol_table.getType(symb_id);
+
+  if (type != eEndogenous)
+    error("ramsey_constraints: " + *name + " should be an endogenous variable");
+
+  RamseyConstraintsStatement::Constraint C;
+  C.endo = symb_id;
+  C.code = op_code;
+  C.expression = rhs;
+  ramsey_constraints.push_back(C);
+
+  delete name;
+}
+

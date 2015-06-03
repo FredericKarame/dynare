@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2014 Dynare Team
+ * Copyright (C) 2003-2015 Dynare Team
  *
  * This file is part of Dynare.
  *
@@ -50,7 +50,7 @@ protected:
   const det_shocks_t det_shocks;
   const SymbolTable &symbol_table;
   void writeDetShocks(ostream &output) const;
-
+  det_shocks_t reindexDetShocksSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table);
   AbstractShocksStatement(bool mshocks_arg, bool overwrite_arg,
                           const det_shocks_t &det_shocks_arg,
                           const SymbolTable &symbol_table_arg);
@@ -77,8 +77,9 @@ public:
                   const covar_and_corr_shocks_t &covar_shocks_arg,
                   const covar_and_corr_shocks_t &corr_shocks_arg,
                   const SymbolTable &symbol_table_arg);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
   virtual void checkPass(ModFileStructure &mod_file_struct, WarningConsolidation &warnings);
+  virtual Statement *cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table);
 };
 
 class MShocksStatement : public AbstractShocksStatement
@@ -87,7 +88,8 @@ public:
   MShocksStatement(bool overwrite_arg,
                    const det_shocks_t &det_shocks_arg,
                    const SymbolTable &symbol_table_arg);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
+  virtual Statement *cloneAndReindexSymbIds(DataTree &dynamic_datatree, SymbolTable &orig_symbol_table);
 };
 
 class ConditionalForecastPathsStatement : public Statement
@@ -98,7 +100,7 @@ private:
 public:
   ConditionalForecastPathsStatement(const AbstractShocksStatement::det_shocks_t &paths_arg);
   virtual void checkPass(ModFileStructure &mod_file_struct, WarningConsolidation &warnings);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
 };
 
 class MomentCalibration : public Statement
@@ -117,7 +119,7 @@ private:
 public:
   MomentCalibration(const constraints_t &constraints_arg,
                     const SymbolTable &symbol_table_arg);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
 };
 
 class IrfCalibration : public Statement
@@ -136,7 +138,7 @@ private:
 public:
   IrfCalibration(const constraints_t &constraints_arg,
                  const SymbolTable &symbol_table_arg);
-  virtual void writeOutput(ostream &output, const string &basename) const;
+  virtual void writeOutput(ostream &output, const string &basename, bool minimal_workspace) const;
 };
 
 #endif
